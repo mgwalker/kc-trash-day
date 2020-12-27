@@ -4,25 +4,71 @@
     <meta charset="utf-8" />
     <title>Trash Day in Kansas City</title>
     <style type="text/css">
+      @keyframes spin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(359deg);
+        }
+      }
+
       body {
         font-family: sans-serif;
+      }
+
+      #container {
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        justify-content: center;
+        left: 0;
+        position: fixed;
+        top: 0;
+        width: 100vw;
+      }
+
+      #container > * {
+        max-width: 50%;
+      }
+
+      #trash-day {
+        font-size: 18pt;
         text-align: center;
+        margin-bottom: 20px;
+      }
+
+      #trash-day strong {
+        font-size: 24pt;
+        font-weight: 800;
+      }
+
+      #trash-day img {
+        animation: 3s spin ease-in-out 0s infinite;
+        margin-top: 20px;
+        max-width: 100px;
       }
     </style>
   </head>
   <body>
-    <div id="trash-day"></div>
-    <iframe
-      id="map"
-      width="425"
-      height="350"
-      frameborder="0"
-      scrolling="no"
-      marginheight="0"
-      marginwidth="0"
-      src=""
-      style="border: 1px solid black; display: none"
-    ></iframe>
+    <div id="container">
+      <div id="trash-day">
+        Getting your trash day...
+        <div><img src="wait.png" /></div>
+      </div>
+      <iframe
+        id="map"
+        width="425"
+        height="350"
+        frameborder="0"
+        scrolling="no"
+        marginheight="0"
+        marginwidth="0"
+        src=""
+        style="border: 1px solid black; display: none"
+      ></iframe>
+    </div>
     <script type="text/javascript" src="env.js"></script>
     <script type="text/javascript" src="main.js"></script>
   </body>
