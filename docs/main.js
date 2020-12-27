@@ -144,7 +144,7 @@ const getParcelData = async (parcelID) => {
 };
 
 const getParcelID = async (address) => {
-  const url = `http://maps5.kcmo.org/kcgis/rest/services/DataLayers/MapServer/39/query?f=JSON&outFields=PIN&where=ADDRESS LIKE '${address.toUpperCase()}'`;
+  const url = `https://maps5.kcmo.org/kcgis/rest/services/DataLayers/MapServer/39/query?f=JSON&outFields=PIN&where=ADDRESS LIKE '${address.toUpperCase()}'`;
   const response = await fetch(url);
 
   const json = await response.json();
