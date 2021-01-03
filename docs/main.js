@@ -24,17 +24,6 @@ const setMap = (latitude, longitude) => {
   map.style.display = "";
 };
 
-const geocode = async (latitude, longitude) => {
-  const url = `https://app.geocodeapi.io/api/v1/reverse?point.lat=${latitude}&point.lon=${longitude}&apikey=${GEOCODE_API_KEY}`;
-  const response = await fetch(url);
-
-  const data = await response.json();
-  if (data.features.length > 0) {
-    return data.features[0].properties.name;
-  }
-  return null;
-};
-
 const getHolidayForThisWeek = () => {
   const oneDay = 24 * 60 * 60 * 1000;
   const holidays = new Map();
@@ -143,12 +132,29 @@ const getParcelData = async (parcelID) => {
   return null;
 };
 
-const getParcelID = async (address) => {
-  const url = `https://maps5.kcmo.org/kcgis/rest/services/DataLayers/MapServer/39/query?f=JSON&outFields=PIN&where=ADDRESS LIKE '${address.toUpperCase()}'`;
+const getParcelID = async (latitude, longitude) => {
+  const params = [
+    "f=JSON",
+    "outFields=PIN",
+    `geometry=${longitude},${latitude}`,
+    "geometryType=esriGeometryPoint",
+    "inSR=4326", // SRID for WGS 84
+    "units=esriSRUnit_Meter",
+    "distance=50", // Find all parcels within 50 meters of the location. Parcels
+    // in this layer are defined as points, not as polygons, so the odds of
+    // getting one exactly right are practically zero.
+  ];
+  const url = `https://maps5.kcmo.org/kcgis/rest/services/DataLayers/MapServer/39/query?${params.join(
+    "&"
+  )}`;
   const response = await fetch(url);
 
   const json = await response.json();
   if (json.features.length > 0) {
+    // Just grab the first one. We can't really know which one the user is in,
+    // and in the majority of cases, every parcel within 50m of a given point
+    // should have the same trash day. Not universal, of course, but... here
+    // we are.
     return json.features[0].attributes.PIN;
   }
   return null;
@@ -166,14 +172,8 @@ const getTrashDay = async () => {
     setBigText("Your location is not in Kansas City");
     return;
   }
-  const address = await geocode(latitude, longitude);
 
-  if (!address) {
-    setBigText("Could not find your address");
-    return;
-  }
-
-  const parcelID = await getParcelID(address);
+  const parcelID = await getParcelID(latitude, longitude);
 
   const { trashDay } = await getParcelData(parcelID);
   const days = [
@@ -209,9 +209,5 @@ const getTrashDay = async () => {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  if (window.GEOCODE_API_KEY) {
-    getTrashDay();
-  } else {
-    setBigText("This site is misconfigured. 😢");
-  }
+  getTrashDay();
 });
