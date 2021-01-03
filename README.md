@@ -1,4 +1,4 @@
-# <img alt="" src="docs/wait.png" style="max-height: 50px;"> Kansas City trash pick-up day
+# <img alt="" src="docs/wait.png" height="50"> Kansas City trash pick-up day
 
 A simple site using vanilla JS to fetch a user's location from the browser,
 convert that into an address with [Geocodeapi](https://geocodeapi.io/), then use
