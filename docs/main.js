@@ -50,7 +50,6 @@ const getHolidayForThisWeek = () => {
     const lastOfMay = new Date(new Date(year, 5, 1).getTime() - oneDay);
 
     const day = lastOfMay.getDay();
-    console.log(day);
 
     if (day === 1) {
       return dateStr(lastOfMay);
@@ -107,7 +106,6 @@ const getHolidayForThisWeek = () => {
   });
 
   const sunday = new Date(now.getTime() - now.getDay() * oneDay);
-  console.log(holidays);
 
   return getHolidayFromSunday(sunday);
 };
