@@ -130,18 +130,27 @@ const getParcelData = async (parcelID) => {
   return null;
 };
 
-const getParcelID = async (latitude, longitude) => {
-  const params = [
-    "f=JSON",
-    "outFields=PIN",
-    `geometry=${longitude},${latitude}`,
-    "geometryType=esriGeometryPoint",
-    "inSR=4326", // SRID for WGS 84
-    "units=esriSRUnit_Meter",
-    "distance=50", // Find all parcels within 50 meters of the location. Parcels
-    // in this layer are defined as points, not as polygons, so the odds of
-    // getting one exactly right are practically zero.
-  ];
+const getParcelID = async ({
+  address = false,
+  latitude = false,
+  longitude = false,
+} = {}) => {
+  const params = ["f=JSON", "outFields=PIN"];
+
+  if (latitude !== false && longitude !== false) {
+    params.push(
+      `geometry=${longitude},${latitude}`,
+      "geometryType=esriGeometryPoint",
+      "inSR=4326", // SRID for WGS 84
+      "units=esriSRUnit_Meter",
+      "distance=50" // Find all parcels within 50 meters of the location. Parcels
+      // in this layer are defined as points, not as polygons, so the odds of
+      // getting one exactly right are practically zero.
+    );
+  } else {
+    params.push(`where=ADDRESS LIKE '${address}'`);
+  }
+
   const url = `https://maps5.kcmo.org/kcgis/rest/services/DataLayers/MapServer/39/query?${params.join(
     "&"
   )}`;
@@ -149,30 +158,17 @@ const getParcelID = async (latitude, longitude) => {
 
   const json = await response.json();
   if (json.features.length > 0) {
-    // Just grab the first one. We can't really know which one the user is in,
-    // and in the majority of cases, every parcel within 50m of a given point
-    // should have the same trash day. Not universal, of course, but... here
-    // we are.
+    // Just grab the first one. If we're using browser geolocation, we can't
+    // really know which one the user is in, and in the majority of cases, every
+    // parcel within 50m of a given point should have the same trash day. Not
+    // universal, of course, but... here we are. And if we're using an address
+    // search, there's just one result anyway.
     return json.features[0].attributes.PIN;
   }
   return null;
 };
 
-const getTrashDay = async () => {
-  const { latitude, longitude } = await getLocation();
-
-  if (
-    latitude > bounds.north ||
-    latitude < bounds.south ||
-    longitude > bounds.east ||
-    longitude < bounds.west
-  ) {
-    setBigText("Your location is not in Kansas City");
-    return;
-  }
-
-  const parcelID = await getParcelID(latitude, longitude);
-
+const getTrashDayForParcelID = async (parcelID) => {
   const { trashDay } = await getParcelData(parcelID);
   const days = [
     "Sunday",
@@ -188,24 +184,96 @@ const getTrashDay = async () => {
   const holiday = getHolidayForThisWeek();
   if (holiday) {
     if (holiday.day <= day) {
-      setBigText(
-        `Based on your current location shown below, your holiday trash pick-up day is <strong>${
-          days[day + 1]
-        }</strong> due to ${holiday.holiday}.`
-      );
+      return `your holiday trash pick-up day is <strong>${
+        days[day + 1]
+      }</strong> due to ${holiday.holiday}`;
     } else {
-      setBigText(
-        `Based on your current location shown below, your holiday trash pick-up day is <strong>${trashDay}</strong> because ${holiday.holiday} is later in the week.`
-      );
+      return `your holiday trash pick-up day is <strong>${trashDay}</strong> because ${holiday.holiday} is later in the week`;
     }
   } else {
+    return `your normal trash pick-up day is <strong>${trashDay}</strong>`;
+  }
+};
+
+const setupUI = () => {
+  document.getElementById("trash-day").style.display = "";
+  document.getElementById("form").style.display = "none";
+};
+
+const getTrashDayWithAddress = async (e) => {
+  e.preventDefault();
+  setupUI();
+
+  const address = document
+    .getElementById("address")
+    .value.toUpperCase()
+    .replace(/#\d+/, "")
+    .replace(/[^0-9A-Z\s]/g, "")
+    .replace("AVENUE", "AVE")
+    .replace("LANE", "LN")
+    .replace("PARKWAY", "PKWAY")
+    .replace("ROAD", "RD")
+    .replace("STREET", "ST")
+    .replace("TERRACE", "TER")
+    .replace("THE PASEO", "PASEO")
+    .replace(/\bKANSAS CITY\b/, "")
+    .replace(/\bKC\b/, "")
+    .replace(/\bMISSOURI\b/, "")
+    .replace(/\bMO\b/, "")
+    .replace(/APARTMENT \S+/, "")
+    .replace(/APT \S+/, "")
+    .replace(/UNIT \S+/, "")
+    .trim();
+
+  const parcelID = await getParcelID({ address });
+
+  if (parcelID === null) {
     setBigText(
-      `Based on your current location shown below, your normal trash pick-up day is <strong>${trashDay}</strong>.`
+      "Hmm. Couldn't find that address. Try using just the street address, no apartment number and no city or state."
+    );
+    document.getElementById("form").style.display = "";
+  } else {
+    const trashDay = await getTrashDayForParcelID(parcelID);
+    setBigText(
+      `For ${address
+        .split(" ")
+        .map((word) => word.toLowerCase())
+        .map((word) =>
+          word.replace(
+            /^(.)(.*)/,
+            (_, first, rest) => `${first.toUpperCase()}${rest}`
+          )
+        )
+        .join(" ")}, ${trashDay}.`
     );
   }
+};
+
+const getTrashDayWithLocation = async () => {
+  setupUI();
+  const { latitude, longitude } = await getLocation();
+
+  if (
+    latitude > bounds.north ||
+    latitude < bounds.south ||
+    longitude > bounds.east ||
+    longitude < bounds.west
+  ) {
+    setBigText("Your location is not in Kansas City");
+    return;
+  }
+
+  const parcelID = await getParcelID({ latitude, longitude });
+
+  const trashDay = await getTrashDayForParcelID(parcelID);
+  setBigText(`Based on your current location shown below, ${trashDay}.`);
   setMap(latitude, longitude);
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  getTrashDay();
+  const locationButton = document.getElementById("useLocation");
+  locationButton.addEventListener("click", getTrashDayWithLocation);
+
+  const form = document.querySelector("form");
+  form.addEventListener("submit", getTrashDayWithAddress);
 });
